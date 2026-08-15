@@ -2,7 +2,6 @@ package mate.academy.lib;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 import mate.academy.service.FileReaderService;
@@ -15,6 +14,11 @@ import mate.academy.service.impl.ProductServiceImpl;
 public class Injector {
     private static final Injector injector = new Injector();
     private static final Map<Class<?>, Object> instances = new HashMap<>();
+    private static final Map<Class<?>, Class<?>> implementationsMap = Map.of(
+            ProductService.class, ProductServiceImpl.class,
+            ProductParser.class, ProductParserImpl.class,
+            FileReaderService.class, FileReaderServiceImpl.class
+    );
 
     public static Injector getInjector() {
         return injector;
@@ -44,6 +48,10 @@ public class Injector {
     }
 
     private Object createNewInstance(Class<?> clazz) {
+        if (!clazz.isAnnotationPresent(Component.class)) {
+            throw new RuntimeException("Class " + clazz.getName()
+                    + " is missing Component annotation");
+        }
         if (instances.containsKey(clazz)) {
             return instances.get(clazz);
         }
@@ -53,19 +61,12 @@ public class Injector {
             Object object = constructor.newInstance();
             instances.put(clazz, object);
             return object;
-        } catch (NoSuchMethodException
-                 | InvocationTargetException
-                 | InstantiationException
-                 | IllegalAccessException e) {
+        } catch (ReflectiveOperationException e) {
             throw new RuntimeException("Can't create a new instance of: " + clazz.getName(), e);
         }
     }
 
-    private Class findImplementation(Class<?> interfaceClazz) {
-        Map<Class<?>, Class<?>> implementationsMap = new HashMap<>();
-        implementationsMap.put(ProductService.class, ProductServiceImpl.class);
-        implementationsMap.put(ProductParser.class, ProductParserImpl.class);
-        implementationsMap.put(FileReaderService.class, FileReaderServiceImpl.class);
+    private Class<?> findImplementation(Class<?> interfaceClazz) {
         if (!implementationsMap.containsKey(interfaceClazz)
                 && !implementationsMap.containsValue(interfaceClazz)) {
             throw new RuntimeException("Input class " + interfaceClazz + " out of scope");
